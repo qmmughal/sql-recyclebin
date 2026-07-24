@@ -31,6 +31,8 @@ Oracle has Flashback Query. SQL Server has... a $2,000 log-reader tool and a pra
 
 Run [`install.sql`](install.sql) in the target database. Then run [`demo.sql`](demo.sql) in a scratch database to see the full accident → recovery loop.
 
+Prefer PowerShell? See the [`SqlRecycleBin` module](powershell/SqlRecycleBin) — `Install-SqlRecycleBin`, `Enable-SqlRecycleBinCapture`, `Restore-SqlRecycleBinLast`, and 10 more cmdlets wrapping the same scripts and `rb.*` procedures.
+
 ## API
 
 | Command | What it does |
