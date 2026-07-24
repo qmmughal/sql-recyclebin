@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL RecycleBin — Undo is a query, not a restore.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F7FA;
+    --surface:#FFFFFF;
+    --border:#E2E7EF;
+    --ink:#10151F;
+    --slate:#5B6B7F;
+    --cobalt:#1E4B8F;
+    --cobalt-dark:#173C72;
+    --teal:#0E8F7A;
+    --amber:#C97A2B;
+    --console:#0F1B2D;
+    --console-line:#1B2C45;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans',sans-serif;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em;}
+  code, .mono, .price, .tag{font-family:'IBM Plex Mono',monospace;}
+  a{color:var(--cobalt); text-decoration:none;}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 28px;}
+
+  /* NAV */
+  nav{border-bottom:1px solid var(--border); background:var(--surface);}
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; height:64px;}
+  .wordmark{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:17px; color:var(--ink);}
+  .wordmark span{color:var(--cobalt);}
+  .navlinks{display:flex; gap:28px; font-size:14px; color:var(--slate); align-items:center;}
+  .navlinks a{color:var(--slate); font-weight:500;}
+  .navlinks a:hover{color:var(--ink);}
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:10px 18px; border-radius:6px; font-size:14px; font-weight:600;
+    border:1px solid transparent; cursor:pointer;
+  }
+  .btn-primary{background:var(--cobalt); color:#fff;}
+  .btn-primary:hover{background:var(--cobalt-dark);}
+  .btn-ghost{border-color:var(--border); color:var(--ink); background:var(--surface);}
+  .btn-ghost:hover{border-color:var(--cobalt); color:var(--cobalt);}
+
+  /* HERO */
+  header.hero{padding:76px 0 64px;}
+  .hero-grid{display:grid; grid-template-columns:1.05fr 1fr; gap:56px; align-items:center;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:12.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--teal); font-weight:600; margin-bottom:14px;}
+  h1.headline{font-size:44px; line-height:1.12; font-weight:700;}
+  h1.headline .accent{color:var(--cobalt);}
+  p.subhead{font-size:17px; color:var(--slate); margin:20px 0 28px; max-width:46ch;}
+  .cta-row{display:flex; gap:12px; flex-wrap:wrap;}
+  .runtime-note{margin-top:18px; font-size:13px; color:var(--slate);}
+  .runtime-note code{background:var(--surface); border:1px solid var(--border); padding:1px 6px; border-radius:4px; font-size:12.5px;}
+
+  /* CONSOLE */
+  .console{
+    background:var(--console); border-radius:10px; overflow:hidden;
+    box-shadow:0 20px 40px -18px rgba(15,27,45,0.45);
+    border:1px solid #1D2F49;
+  }
+  .console-bar{display:flex; align-items:center; gap:8px; padding:12px 16px; border-bottom:1px solid var(--console-line);}
+  .dot{width:10px; height:10px; border-radius:50%;}
+  .console-title{margin-left:8px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:#7C8CA6;}
+  .console-body{padding:20px 20px 22px; min-height:290px;}
+  .console-body pre{margin:0; font-family:'IBM Plex Mono',monospace; font-size:13px; line-height:1.75; color:#D9E2EC; white-space:pre-wrap;}
+  .c-comment{color:#5C7089;}
+  .c-cmd{color:#7FB2E5;}
+  .c-str{color:#E8B579;}
+  .c-ok{color:#4FD1B5;}
+  .c-warn{color:#E3A15C;}
+  .cursor{display:inline-block; width:7px; height:15px; background:#7FB2E5; vertical-align:middle; animation:blink 1s steps(1) infinite;}
+  @keyframes blink{50%{opacity:0;}}
+
+  /* SECTIONS */
+  section{padding:64px 0;}
+  section.alt{background:var(--surface); border-top:1px solid var(--border); border-bottom:1px solid var(--border);}
+  h2.section-title{font-size:28px; margin-bottom:14px;}
+  p.section-lead{color:var(--slate); font-size:15.5px; max-width:64ch; margin-bottom:36px;}
+
+  .why-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:20px;}
+  .why-card{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:22px;}
+  .why-card .k{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--amber); font-weight:600; letter-spacing:0.03em;}
+  .why-card h3{font-size:16px; margin:8px 0 8px;}
+  .why-card p{color:var(--slate); font-size:14px; margin:0;}
+
+  .steps{display:grid; grid-template-columns:repeat(3,1fr); gap:0; counter-reset:step;}
+  .step{position:relative; padding:0 24px 0 0;}
+  .step:not(:last-child){border-right:1px solid var(--border);}
+  .step:not(:first-child){padding-left:24px;}
+  .step .num{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--cobalt); font-weight:600; margin-bottom:10px;}
+  .step h3{font-size:16px; margin-bottom:8px;}
+  .step p{color:var(--slate); font-size:14px; margin:0 0 12px;}
+  .step code.block{display:block; background:var(--console); color:#D9E2EC; padding:12px 14px; border-radius:6px; font-size:12.5px; line-height:1.6; overflow-x:auto;}
+  .step code.block .c-cmd{color:#7FB2E5;} .step code.block .c-str{color:#E8B579;}
+
+  .limits{background:#FBF3E8; border:1px solid #EFD3AC; border-radius:8px; padding:22px 24px;}
+  .limits h3{font-size:15px; color:var(--amber); font-family:'IBM Plex Mono',monospace; margin-bottom:12px;}
+  .limits ul{margin:0; padding-left:20px; color:#6B4E28; font-size:14px; line-height:1.8;}
+
+  /* PRICING */
+  .price-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  .plan{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:30px;}
+  .plan.pro{border-color:var(--cobalt); position:relative;}
+  .plan-name{font-size:13px; text-transform:uppercase; letter-spacing:0.05em; color:var(--slate); font-weight:600;}
+  .plan.pro .plan-name{color:var(--cobalt);}
+  .plan-price{font-family:'IBM Plex Mono',monospace; font-size:32px; font-weight:600; margin:10px 0 4px;}
+  .plan-sub{color:var(--slate); font-size:13.5px; margin-bottom:22px;}
+  .plan ul{list-style:none; margin:0 0 26px; padding:0;}
+  .plan li{font-size:14px; padding:8px 0; border-top:1px solid var(--border); display:flex; gap:10px;}
+  .plan li:first-child{border-top:none;}
+  .check{color:var(--teal); font-weight:700;}
+  .check.amber{color:var(--amber);}
+
+  footer{padding:40px 0 60px; color:var(--slate); font-size:13px;}
+  footer .wrap{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px; border-top:1px solid var(--border); padding-top:28px;}
+  .tags{display:flex; gap:8px; flex-wrap:wrap;}
+  .tag{background:var(--surface); border:1px solid var(--border); padding:4px 9px; border-radius:5px; font-size:11.5px; color:var(--slate);}
+
+  @media (max-width:860px){
+    .hero-grid{grid-template-columns:1fr;}
+    .why-grid{grid-template-columns:1fr;}
+    .steps{grid-template-columns:1fr;}
+    .step{border-right:none !important; padding-left:0 !important; padding-bottom:20px;}
+    .step:not(:last-child){border-bottom:1px solid var(--border); padding-bottom:24px; margin-bottom:24px;}
+    .price-grid{grid-template-columns:1fr;}
+    h1.headline{font-size:32px;}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <div class="wordmark">sql<span>-</span>recyclebin</div>
+    <div class="navlinks">
+      <a href="#how">How it works</a>
+      <a href="#limits">Limitations</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/qmmughal/sql-recyclebin" class="btn btn-ghost" style="padding:8px 14px;">View on GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <div class="eyebrow">// SQL Server 2017+, all editions incl. Express</div>
+      <h1 class="headline">Undo is a query,<br>not a <span class="accent">restore</span>.</h1>
+      <p class="subhead">SQL RecycleBin captures every <code style="background:var(--surface);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:14px;">DELETE</code> and <code style="background:var(--surface);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:14px;">UPDATE</code> on the tables you protect. When someone forgets the <code style="background:var(--surface);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:14px;">WHERE</code> clause, you get the rows back with one command — no backup restore, no log-reader tool, no downtime.</p>
+      <div class="cta-row">
+        <a href="https://github.com/qmmughal/sql-recyclebin" class="btn btn-primary">View on GitHub →</a>
+        <a href="#pricing" class="btn btn-ghost">Commercial licensing</a>
+      </div>
+      <div class="runtime-note">Source-available under <code>PolyForm Noncommercial 1.0.0</code> — free for personal, educational, and noncommercial use.</div>
+    </div>
+
+    <div class="console">
+      <div class="console-bar">
+        <div class="dot" style="background:#E3625C;"></div>
+        <div class="dot" style="background:#E8B549;"></div>
+        <div class="dot" style="background:#4FB562;"></div>
+        <div class="console-title">SSMS — dbo.rbDemo_Orders</div>
+      </div>
+      <div class="console-body">
+        <pre id="typer"></pre>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="alt">
+  <div class="wrap">
+    <h2 class="section-title">SQL Server never got Flashback Query.</h2>
+    <p class="section-lead">Oracle DBAs have had it for two decades. SQL Server's options are a $2,000 log-reader tool, or a point-in-time restore that loses every transaction after the mistake unless you merge it back by hand.</p>
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="k">THE RESTORE PROBLEM</div>
+        <h3>Point-in-time restore is slow and lossy</h3>
+        <p>Rolling back to before the accident means losing every legitimate change that happened after it, unless you stand up a second copy and merge manually.</p>
+      </div>
+      <div class="why-card">
+        <div class="k">THE TOOLING PROBLEM</div>
+        <h3>Log-reader forensics tools are expensive</h3>
+        <p>Commercial transaction-log readers can reconstruct what happened — for a licensing fee that's hard to justify until after the first incident.</p>
+      </div>
+      <div class="why-card">
+        <div class="k">THE COVERAGE PROBLEM</div>
+        <h3>Express edition is usually left out</h3>
+        <p>Most recovery tooling assumes Enterprise or Standard. SQL RecycleBin is a trigger + a JSON store — it runs on every edition since 2017.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2 class="section-title">How it works</h2>
+    <p class="section-lead">Three commands. No agent, no separate service, no schema mirroring — changed rows are captured as JSON, so <code style="background:var(--surface);border:1px solid var(--border);padding:1px 6px;border-radius:4px;font-size:14px;">ALTER TABLE</code> never breaks your safety net.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">01</div>
+        <h3>Enable capture, once</h3>
+        <p>Generates a lightweight AFTER UPDATE/DELETE trigger on the table.</p>
+        <code class="block"><span class="c-cmd">EXEC</span> rb.Enable <span class="c-str">@Table = 'dbo.Orders'</span>;</code>
+      </div>
+      <div class="step">
+        <div class="num">02</div>
+        <h3>Someone makes the mistake</h3>
+        <p>A DELETE without a WHERE. A mass UPDATE that zeroes a column. It happens — this is the moment the trigger was waiting for.</p>
+        <code class="block"><span class="c-cmd">DELETE</span> dbo.Orders <span class="c-warn">-- no WHERE</span></code>
+      </div>
+      <div class="step">
+        <div class="num">03</div>
+        <h3>Look, then undo</h3>
+        <p>See exactly what was lost as real typed columns, then reverse it — newest transaction first.</p>
+        <code class="block"><span class="c-cmd">EXEC</span> rb.Deleted <span class="c-str">@Table = 'dbo.Orders'</span>;
+<span class="c-cmd">EXEC</span> rb.UndoLast <span class="c-str">@Table = 'dbo.Orders'</span>;</code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="limits">
+  <div class="wrap">
+    <h2 class="section-title">Honest limitations</h2>
+    <p class="section-lead">This is a safety net, not a replacement for backups — and we'd rather you know the edges now than find them during an incident.</p>
+    <div class="limits">
+      <h3>// v1 known limits</h3>
+      <ul>
+        <li><code>TRUNCATE TABLE</code>, <code>DROP TABLE</code>, and minimally-logged bulk operations don't fire triggers — not captured.</li>
+        <li>Protected tables must have a primary key.</li>
+        <li>Updating a primary key value breaks before/after pairing for that row (the before-image is still captured).</li>
+        <li>Restoring is subject to your foreign keys — restore parents before children.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <h2 class="section-title">Pricing</h2>
+    <p class="section-lead">The complete product is free for noncommercial use. Companies running it in production need a commercial license.</p>
+    <div class="price-grid">
+      <div class="plan">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0</div>
+        <div class="plan-sub">PolyForm Noncommercial 1.0.0</div>
+        <ul>
+          <li><span class="check">✓</span> Full rb.* capture &amp; undo engine</li>
+          <li><span class="check">✓</span> All SQL Server 2017+ editions, incl. Express</li>
+          <li><span class="check">✓</span> Personal, education, research, nonprofit, government use</li>
+          <li><span class="check amber">–</span> Not licensed for for-profit / commercial use</li>
+        </ul>
+        <a href="https://github.com/qmmughal/sql-recyclebin" class="btn btn-ghost" style="width:100%; justify-content:center;">Get it on GitHub</a>
+      </div>
+      <div class="plan pro">
+        <div class="plan-name">Pro — Commercial</div>
+        <div class="plan-price">Contact us</div>
+        <div class="plan-sub">Required for any for-profit / commercial use</div>
+        <ul>
+          <li><span class="check">✓</span> Everything in Free, commercially licensed</li>
+          <li><span class="check">✓</span> CDC-based capture engine — zero trigger overhead</li>
+          <li><span class="check">✓</span> Blazor dashboard — diff viewer, one-click restore</li>
+          <li><span class="check">✓</span> SESSION_CONTEXT user forensics</li>
+          <li><span class="check">✓</span> Multi-DB monitoring, alerts, RBAC, TRUNCATE protection</li>
+        </ul>
+        <a href="mailto:qaiser@92logics.com" class="btn btn-primary" style="width:100%; justify-content:center;">qaiser@92logics.com</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>© 2026 Qaiser Mughal / 92 Logics (Pvt) Ltd. — source-available, not open source.</div>
+    <div class="tags">
+      <span class="tag">sql-server</span>
+      <span class="tag">t-sql</span>
+      <span class="tag">disaster-recovery</span>
+      <span class="tag">dba-tools</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+const lines = [
+  {t:"-- 1. someone forgets the WHERE clause", cls:"c-comment"},
+  {t:"DELETE dbo.Orders WHERE Status = 'Paid';", cls:"c-cmd"},
+  {t:"UPDATE dbo.Orders SET Amount = 0;", cls:"c-cmd"},
+  {t:"", cls:""},
+  {t:"-- 2. see exactly what was lost", cls:"c-comment"},
+  {t:"EXEC rb.Deleted @Table = 'dbo.Orders';", cls:"c-cmd"},
+  {t:"> 2 rows returned (as typed columns)", cls:"c-ok"},
+  {t:"", cls:""},
+  {t:"-- 3. undo it, newest first", cls:"c-comment"},
+  {t:"EXEC rb.UndoLast @Table = 'dbo.Orders';", cls:"c-cmd"},
+  {t:"> reverted 4 zeroed rows", cls:"c-ok"},
+  {t:"EXEC rb.UndoLast @Table = 'dbo.Orders';", cls:"c-cmd"},
+  {t:"> restored 2 deleted rows", cls:"c-ok"},
+  {t:"", cls:""},
+  {t:"-- done. no restore, no downtime.", cls:"c-comment"}
+];
+
+const el = document.getElementById('typer');
+let li = 0, ci = 0;
+let html = "";
+
+function frame(){
+  if(li >= lines.length){
+    setTimeout(()=>{ el.innerHTML=""; li=0; ci=0; html=""; frame(); }, 2600);
+    return;
+  }
+  const line = lines[li];
+  if(ci === 0 && html !== "") html += "\n";
+  if(ci <= line.t.length){
+    const partial = line.t.slice(0, ci);
+    el.innerHTML = html + (line.cls ? '<span class="'+line.cls+'">'+escapeHtml(partial)+'</span>' : escapeHtml(partial)) + '<span class="cursor"></span>';
+    ci++;
+    setTimeout(frame, line.t.length === 0 ? 120 : 16);
+  } else {
+    html += (line.cls ? '<span class="'+line.cls+'">'+escapeHtml(line.t)+'</span>' : escapeHtml(line.t));
+    li++; ci = 0;
+    setTimeout(frame, 260);
+  }
+}
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+frame();
+</script>
+
+</body>
+</html>
