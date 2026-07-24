@@ -2,6 +2,8 @@
 
 🌐 **Live site:** [sqlrecyclebin.com](https://sqlrecyclebin.com) — pricing, licensing, and a live demo of the accident → recovery flow.
 
+[![PowerShell Gallery](https://img.shields.io/powershellgallery/v/SqlRecycleBin?label=PowerShell%20Gallery)](https://www.powershellgallery.com/packages/SqlRecycleBin)
+
 **A recycle bin for SQL Server.** Every `DELETE` and `UPDATE` on your protected tables is captured automatically. Query back what was lost. Undo it with one command.
 
 ```sql
@@ -31,7 +33,7 @@ Oracle has Flashback Query. SQL Server has... a $2,000 log-reader tool and a pra
 
 Run [`install.sql`](install.sql) in the target database. Then run [`demo.sql`](demo.sql) in a scratch database to see the full accident → recovery loop.
 
-Prefer PowerShell? See the [`SqlRecycleBin` module](powershell/SqlRecycleBin) — `Install-SqlRecycleBin`, `Enable-SqlRecycleBinCapture`, `Restore-SqlRecycleBinLast`, and 10 more cmdlets wrapping the same scripts and `rb.*` procedures.
+Prefer PowerShell? `Install-Module SqlRecycleBin` from the [PowerShell Gallery](https://www.powershellgallery.com/packages/SqlRecycleBin) — `Install-SqlRecycleBin`, `Enable-SqlRecycleBinCapture`, `Restore-SqlRecycleBinLast`, and 10 more cmdlets wrapping the same scripts and `rb.*` procedures. Source in [`powershell/SqlRecycleBin`](powershell/SqlRecycleBin).
 
 ## API
 
