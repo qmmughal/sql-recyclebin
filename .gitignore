@@ -1,0 +1,17 @@
+# SQL Server / SSMS
+*.sqlproj.user
+.vs/
+bin/
+obj/
+*.dtsx.user
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Local scratch
+*.bak
+*.log
