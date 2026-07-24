@@ -1,5 +1,7 @@
 # SQL RecycleBin
 
+🌐 **Live site:** [sqlrecyclebin.com](https://sqlrecyclebin.com) — pricing, licensing, and a live demo of the accident → recovery flow.
+
 **A recycle bin for SQL Server.** Every `DELETE` and `UPDATE` on your protected tables is captured automatically. Query back what was lost. Undo it with one command.
 
 ```sql
