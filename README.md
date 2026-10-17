@@ -1,6 +1,6 @@
 # SQL RecycleBin
 
-🌐 **Live site:** [sqlrecyclebin.com](https://sqlrecyclebin.com) — pricing, licensing, and a live demo of the accident → recovery flow.
+🌐 **Live site:** [sqlrecyclebin.com](http://sqlrecyclebin.com) — pricing, licensing, and a live demo of the accident → recovery flow.
 
 [![PowerShell Gallery](https://img.shields.io/powershellgallery/v/SqlRecycleBin?label=PowerShell%20Gallery)](https://www.powershellgallery.com/packages/SqlRecycleBin)
 
